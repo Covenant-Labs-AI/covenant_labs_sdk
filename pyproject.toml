@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "covenantlabs_sdk"
+version = "0.0.1"
+description = "A expermental lightweight library providing model encryption utils and integration to the Covenant Platform."
+readme = "README.md"
+authors = [
+    { name = "Tyler Hanson", email = "tylerhanson921@gmail.com" }
+]
+license = { text = "MIT" }
+requires-python = ">=3.8"
+
+dependencies = [
+    "requests>=2.31.0",
+    "transformers>=4.40.0",
+    "cryptography>=42.0.0",
+    "numpy>=1.26,<2",
+    "tqdm>=4.0.0"
+]
+
+[tool.poetry.dev-dependencies]
+black = "^23.0"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
