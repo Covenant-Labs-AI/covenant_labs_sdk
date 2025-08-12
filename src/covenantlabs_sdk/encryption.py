@@ -2,8 +2,6 @@ import hashlib
 import numpy as np
 from transformers import PreTrainedTokenizerBase
 from typing import List, Tuple
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from cryptography.hazmat.primitives import hashes
 
 
 def generate_permutation_from_key_xof(size, key: bytes, salt: bytes = b""):

@@ -1,3 +1,4 @@
+from dataclasses import asdict
 import os
 from typing import List
 import requests
@@ -5,10 +6,16 @@ from tqdm import tqdm
 
 from transformers import AutoTokenizer
 
-
+from .dataclasses import (
+    Deployment,
+    DeploymentStatus,
+    Model,
+    SecureInferenceRequest,
+    SecureInferenceResponse,
+)
 from .encryption import permute_bf16_inplace, encrypt_prompt, decrypt_prompt
 
-COVENANT_URL = "platform.covenantlabs.ai"
+COVENANT_URL = "http://localhost:3000"
 
 
 class CovenantClient:
@@ -16,7 +23,7 @@ class CovenantClient:
         self.deployment_key = deployment_key
         self.secret_key = secret_key
         self.headers = {"Authorization": f"Bearer {self.deployment_key}"}
-        self.model = None
+        self.model: Model | None = None
 
         if not self.secret_key:
             raise ValueError("Missing env SECRET_ENCRYPTION_KEY")
@@ -27,14 +34,11 @@ class CovenantClient:
     def encrypt_model(self):
         response_data = self._get_deployment()
 
-        if response_data.get("error"):
-            raise RuntimeError(response_data["error"])
+        self.model = response_data.model
 
-        self.model = response_data["model"]
-
-        if response_data["status"] == "ENCRYPTION_PENDING":
+        if response_data.status == DeploymentStatus.ENCRYPTION_PENDING.value:
             print("Downloading and encrypting your model weights... please wait")
-            for layer in response_data["model"]["encrypted_layers"]:
+            for layer in response_data.model.encrypted_layers:
                 self._download_model_file(layer)
                 print(f"Encrypting: {layer}")
                 self._encrypt_layer(layer)
@@ -46,15 +50,12 @@ class CovenantClient:
             headers=self.headers,
         )
 
-    def secure_inference(self, messages: List[dict]) -> str:  # TODO add dataclass
+    def secure_inference(self, messages: List[dict]) -> str:
         if not self.model:
             response_data = self._get_deployment()
-            if response_data.get("error"):
-                raise RuntimeError(response_data["error"])
+            self.model = response_data.model
 
-            self.model = response_data["model"]
-
-        tokenizer = AutoTokenizer.from_pretrained(self.model["hugging_face_url"])
+        tokenizer = AutoTokenizer.from_pretrained(self.model.hugging_face_url)
 
         tokens = tokenizer.apply_chat_template(
             messages,
@@ -64,29 +65,40 @@ class CovenantClient:
 
         tokens, _ = encrypt_prompt(tokens, tokenizer, key=self.secret_key.encode())
 
-        payload = {"tokens": tokens}
+        response = self._send_secure_infrence_request(SecureInferenceRequest(tokens))
 
-        response = requests.post(
-            COVENANT_URL + "/secure/generate", json=payload, headers=self.headers
+        return decrypt_prompt(
+            response.generated_tokens,
+            tokenizer,
+            key=self.secret_key.encode(),
         )
 
-        if response.status_code in (200, 201):
-            return decrypt_prompt(
-                response.json()["generated_tokens"],
-                tokenizer,
-                key=self.secret_key.encode(),
-            )
-        else:
-            raise RuntimeError("Please wait until your deployment is ready")
-
-    def _get_deployment(self) -> dict:  # TODO add dataclass
+    def _get_deployment(self) -> Deployment:
         response = requests.get(f"{COVENANT_URL}/api/deployments", headers=self.headers)
         response_data = response.json()
 
         if response_data.get("error"):
             raise RuntimeError(response_data["error"])
 
-        return response_data
+        model_data = response_data.pop("model")
+        return Deployment(**response_data, model=Model(**model_data))
+
+    def _send_secure_infrence_request(
+        self, payload: SecureInferenceRequest
+    ) -> SecureInferenceResponse:
+        response = requests.post(
+            COVENANT_URL + "/secure/generate",
+            json=asdict(payload),
+            headers=self.headers,
+        )
+
+        if response.status_code not in (200, 201):
+            raise RuntimeError(
+                "Failed to preform secure inference, please make sure your deployment is: DEPLOYED"
+            )
+
+        secure_inference_response = response.json()
+        return SecureInferenceResponse(**secure_inference_response)
 
     def _download_model_file(self, layer) -> None:
         response = requests.get(
@@ -159,8 +171,8 @@ class CovenantClient:
     def _encrypt_layer(self, layer) -> None:
         permute_bf16_inplace(
             layer,
-            self.model.get("num_embeddings"),
-            self.model.get("hidden_size"),
-            self.model.get("vocab_size"),
+            self.model.num_embeddings,
+            self.model.hidden_size,
+            self.model.vocab_size,
             self.secret_key.encode(),
         )
