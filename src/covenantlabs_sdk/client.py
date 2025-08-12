@@ -15,7 +15,7 @@ from .dataclasses import (
 )
 from .encryption import permute_bf16_inplace, encrypt_prompt, decrypt_prompt
 
-COVENANT_URL = "http://localhost:3000"
+COVENANT_URL = "https://platfrom.covenant.ai"
 
 
 class CovenantClient:
