@@ -15,7 +15,7 @@ from .dataclasses import (
 )
 from .encryption import permute_bf16_inplace, encrypt_prompt, decrypt_prompt
 
-COVENANT_URL = "https://platfrom.covenant.ai"
+COVENANT_URL = os.getenv("COVENANT_URL", "https://platfrom.covenantlabs.ai")
 
 
 class CovenantClient:
@@ -113,8 +113,8 @@ class CovenantClient:
                 total_size = int(file_response.headers.get("content-length", 0))
                 block_size = 8192
 
-                with open(f"{layer}.bin", "wb") as f, tqdm(
-                    total=total_size, unit="B", unit_scale=True, desc=f"{layer}.bin"
+                with open(f"{layer}", "wb") as f, tqdm(
+                    total=total_size, unit="B", unit_scale=True, desc=f"{layer}"
                 ) as pbar:
                     for chunk in file_response.iter_content(chunk_size=block_size):
                         if chunk:
@@ -130,7 +130,7 @@ class CovenantClient:
     def _upload_model_file(self, layer_path: str) -> None:
         response = requests.post(
             f"{COVENANT_URL}/api/deployments/upload",
-            json={"object_key": layer_path + ".bin"},
+            json={"object_key": layer_path},
             headers=self.headers,
         )
         if response.status_code != 200:
@@ -143,7 +143,7 @@ class CovenantClient:
             print("No signed URL returned.")
             return
 
-        file_path = layer_path + ".bin"
+        file_path = layer_path
         file_size = os.path.getsize(file_path)
 
         headers = {

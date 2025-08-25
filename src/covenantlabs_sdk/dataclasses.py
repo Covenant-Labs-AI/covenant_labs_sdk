@@ -23,6 +23,7 @@ class SecureInferenceResponse:
 class Model:
     id: str
     name: str
+    provider: str
     vocab_size: int
     num_embeddings: int
     embedding_column_size: int

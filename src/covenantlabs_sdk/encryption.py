@@ -21,7 +21,7 @@ def generate_permutation_from_key_xof(size, key: bytes, salt: bytes = b""):
 def permute_bf16_inplace(
     layer: str, num_embeddings: int, hidden_size: int, vocab_size: int, key: bytes
 ):
-    file = layer + ".bin"
+    file = layer
     data = np.fromfile(file, dtype=np.uint16)
     data = data.reshape(num_embeddings, hidden_size)
 
