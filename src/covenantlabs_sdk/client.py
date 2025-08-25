@@ -15,7 +15,7 @@ from .dataclasses import (
 )
 from .encryption import permute_bf16_inplace, encrypt_prompt, decrypt_prompt
 
-COVENANT_URL = os.getenv("COVENANT_URL", "https://platfrom.covenantlabs.ai")
+COVENANT_URL = os.getenv("COVENANT_URL", "https://platform.covenantlabs.ai")
 
 
 class CovenantClient:
